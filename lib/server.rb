@@ -3,7 +3,8 @@ require 'uri'
 
 
 class Server
-  attr_accessor :tcp_server,
+  attr_accessor :port,
+                :tcp_server,
                 :hello_counter,
                 :requests,
                 :request_lines,
@@ -11,9 +12,7 @@ class Server
                 :client,
                 :response,
                 :paths,
-                :close_for_test,
-                :port,
-                :close
+                :close_for_test
 
 
   def initialize(port)
@@ -22,11 +21,12 @@ class Server
     @hello_counter = 0
     @requests = 0
     @guess_count = 0
-    @close = false
+    @close_for_test = false
   end
 
   def run_server
     loop do
+      puts 'begin loop'
       accept_connection
       read_request
       parse_request
@@ -36,17 +36,17 @@ class Server
       counters_increaser
       output_to_client
       close_client
-      puts "finished #{@port}#{@close}"
-      if @user_path == '/shutdown'|| @close == true
-        puts "#{@close}"
+      if user_path == '/shutdown'|| @close_for_test == true
+        puts " loop broken#{@close_for_test}"
         break
       end
-      puts "finished #{@port}#{@close}"
+      puts "finished #{@port}#{@close_for_test}"
     end
   end
 
   def accept_connection(server = tcp_server)
     @client = server.accept
+    puts 'connection accepted'
     @requests += 1
   end
 
@@ -74,7 +74,7 @@ class Server
   def diagnostics_html
     "<pre>
     Verb: #{@verb}
-    Path: #{@user_path}
+    Path: #{user_path}
     Protocol: #{@protocol}
     Host: #{@host}
     Port: #{@port}
@@ -87,11 +87,11 @@ class Server
 
   def check_game
     #require "pry"; binding.pry
-    if @verb == 'POST' && @user_path == "/start_game"
+    if @verb == 'POST' && user_path == "/start_game"
       start_game
-    elsif @verb == 'POST' && @user_path == "/game"
+    elsif @verb == 'POST' && user_path == "/game"
       make_guess
-    elsif @verb == 'GET' && @user_path == "/game"
+    elsif @verb == 'GET' && user_path == "/game"
       game_info
     end
   end
@@ -122,7 +122,7 @@ class Server
   end
 
   def make_header
-    if @verb == 'POST' &&  @user_path == "/game"
+    if @verb == 'POST' &&  user_path == "/game"
       @header = ["http/1.1 302 redirecting",
             "Location: http://127.0.0.1:#{@port}/game",
             "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
@@ -140,6 +140,7 @@ class Server
 
   def close_client
     client.close
+    puts 'connection ended'
   end
 
   def requested_file(lines = @request_lines)
@@ -154,7 +155,7 @@ class Server
   end
 
   def dict_search_result
-    assign_param if @user_path == "/word_search"
+    assign_param if user_path == "/word_search"
     if dict_list.include?(@param) == true
       "#{@param} is a known word"
     else
