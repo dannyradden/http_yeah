@@ -6,10 +6,16 @@ require 'faraday'
 class ServerTest < Minitest::Test
   attr_accessor :ser, :conn
   def setupp(port)
-    $close = false
     @ser = Server.new(port)
     @conn = Faraday.new(:url => "http://127.0.0.1:#{port}")
   end
+
+  def del_html(string)
+    string.slice!('<html><head></head><body><pre>')
+    string.slice!('</pre></body></html>')
+    string
+  end
+
 
   def test_server_exists
     setupp(9290)
@@ -24,8 +30,9 @@ class ServerTest < Minitest::Test
     threads = []
     threads << Thread.new {ser.run_server}
     threads << Thread.new do
-            $close = true
-      assert_equal '<html><head></head><body><pre>Hello World(0)</pre></body></html>', conn.get('/hello').body
+
+      ser.close = true
+      assert_equal 'Hello World(0)', del_html(conn.get('/hello').body)
 
     end
     threads.each {|thread| thread.join}
@@ -37,9 +44,11 @@ class ServerTest < Minitest::Test
     threads = []
     threads << Thread.new {ser.run_server}
     threads << Thread.new do
+
       conn.get('/hello')
-      $close = true
-      assert_equal '<html><head></head><body><pre>Hello World(1)</pre></body></html>', conn.get('/hello').body
+      sleep(0.01)
+      ser.close = true
+      assert_equal 'Hello World(1)', del_html(conn.get('/hello').body)
     end
     threads.each {|thread| thread.join}
   end
@@ -50,11 +59,39 @@ class ServerTest < Minitest::Test
     threads = []
     threads << Thread.new {ser.run_server}
     threads << Thread.new do
-      $close = true
-      assert_equal "<html><head></head><body><pre>#{Time.now.strftime('%I:%M%p on %A, %B %d, %Y')}</pre></body></html>", conn.get('/datetime').body
+
+      ser.close = true
+      assert_equal "#{Time.now.strftime('%I:%M%p on %A, %B %d, %Y')}", del_html(conn.get('/datetime').body)
     end
     threads.each {|thread| thread.join}
   end
 
+  def test_start_game
+    setupp(9294)
 
+    threads = []
+    threads << Thread.new {ser.run_server}
+    threads << Thread.new do
+
+      ser.close = true
+      assert_equal "Good luck!", del_html(conn.post('/start_game').body)
+    end
+    threads.each {|thread| thread.join}
+  end
+
+  def test_game_guess
+    setupp(9295)
+
+    threads = []
+    threads << Thread.new {ser.run_server}
+    threads << Thread.new do
+
+      conn.post('/start_game')
+      conn.post '/game', {:guess => 50}
+      sleep(0.01)
+      ser.close = true
+      assert  del_html(conn.get('/game').body).include? "You have made 1 guesses.\n\nYour guess of 50 is"
+    end
+    threads.each {|thread| thread.join}
+  end
 end

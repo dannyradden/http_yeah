@@ -10,14 +10,19 @@ class Server
                 :user_path,
                 :client,
                 :response,
-                :paths
+                :paths,
+                :close_for_test,
+                :port,
+                :close
 
 
   def initialize(port)
+    @port = port
     @tcp_server = TCPServer.new(port)
     @hello_counter = 0
     @requests = 0
     @guess_count = 0
+    @close = false
   end
 
   def run_server
@@ -31,7 +36,12 @@ class Server
       counters_increaser
       output_to_client
       close_client
-      break if @user_path == '/shutdown'|| $close == true
+      puts "finished #{@port}#{@close}"
+      if @user_path == '/shutdown'|| @close == true
+        puts "#{@close}"
+        break
+      end
+      puts "finished #{@port}#{@close}"
     end
   end
 
@@ -45,7 +55,7 @@ class Server
     while (line = server.gets) && !line.chomp.empty?
       request_lines << line.chomp
     end
-    puts request_lines.inspect
+     puts request_lines.inspect
   end
 
   def parse_request(request = request_lines)
@@ -53,9 +63,12 @@ class Server
     @user_path = requested_file(request)
     @protocol = request[0].split(' ')[2]
     @host = request[1].split(' ')[1].split(':')[0]
-    @port = request[1].split(' ')[1].split(':')[1]
+    #@port = request[1].split(' ')[1].split(':')[1]
     @accept = request_lines[-3]
-    @content_length = request[3].split(':')[1] if @verb == 'POST'
+    if @verb == 'POST'
+      @content_type = request.find {|string| string.include? "Content-Type"}.split(':')[1]
+      @content_length = request.find {|string| string.include? "Content-Length"}.split(':')[1]
+    end
   end
 
   def diagnostics_html
@@ -67,11 +80,13 @@ class Server
     Port: #{@port}
     Origin: #{@host}
     #{@accept}
+    #{@content_type}
     #{@content_length}
     </pre>"
   end
 
   def check_game
+    #require "pry"; binding.pry
     if @verb == 'POST' && @user_path == "/start_game"
       start_game
     elsif @verb == 'POST' && @user_path == "/game"
@@ -109,7 +124,7 @@ class Server
   def make_header
     if @verb == 'POST' &&  @user_path == "/game"
       @header = ["http/1.1 302 redirecting",
-            "Location: http://127.0.0.1:9292/game",
+            "Location: http://127.0.0.1:#{@port}/game",
             "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
             "server: ruby",
             "content-type: text/html; charset=iso-8859-1",
@@ -156,7 +171,12 @@ class Server
   end
 
   def make_guess
-      @guess = client.read(@content_length.to_i).split("\r\n")[-2].to_i
+      #puts client.read(@content_length.to_i)
+      if @content_type.include? 'form-data'
+        @guess = client.read(@content_length.to_i).split("\r\n")[-2].to_i
+      else
+        @guess = client.read(@content_length.to_i).split('=')[1].to_i
+      end
       guess_checker if @game_number != nil
   end
 
