@@ -1,14 +1,15 @@
 require 'socket'
 require 'uri'
+require './lib/game'
 
 class Server
-  attr_accessor :close_for_test
+  attr_accessor :close_for_test,
+                :game_response
 
   attr_reader :port,
               :tcp_server,
               :hello_counter,
               :requests,
-              :guess_count,
               :request_lines,
               :verb,
               :user_path,
@@ -20,13 +21,10 @@ class Server
               :accept,
               :content_type,
               :content_length,
-              :game_response,
               :header,
               :output,
-              :param,
-              :game_number,
-              :guess,
-              :high_low
+              :get_param,
+              :new_game
 
 
   def initialize(port)
@@ -34,8 +32,8 @@ class Server
     @tcp_server = TCPServer.new(port)
     @hello_counter = 0
     @requests = 0
-    @guess_count = 0
     @close_for_test = false
+    @game_response = ''
   end
 
   def run_server
@@ -100,17 +98,17 @@ class Server
   end
 
   def check_game
-    #require "pry"; binding.pry
     if verb == 'POST' && user_path == "/start_game"
-      start_game
+      @new_game = Game.new
     elsif verb == 'POST' && user_path == "/game"
-      make_guess
+      new_game.make_guess(content_type, content_length, client)
     elsif verb == 'GET' && user_path == "/game"
-      game_info
+      @game_response = new_game.game_info
     end
   end
 
   def path_to_response(path = user_path)
+    # require "pry"; binding.pry
     @paths = {'/' => '',
                  '/hello' => "Hello World(#{hello_counter})",
                  '/datetime' => "#{Time.now.strftime('%I:%M%p on %A, %B %d, %Y')}",
@@ -162,57 +160,23 @@ class Server
     URI.unescape(URI(request_uri).path)
   end
 
-  def assign_param(lines = request_lines)
+  def assign_get_param(lines = request_lines)
     request_uri  = lines[0].split(' ')[1]
     query        = URI.unescape(URI(request_uri).query)
-    @param = query.split('=')[1]
+    @get_param = query.split('=')[1]
   end
 
   def dict_search_result
-    assign_param if user_path == "/word_search"
-    if dict_list.include?(param) == true
-      "#{param} is a known word"
+    assign_get_param if user_path == "/word_search"
+    if dict_list.include?(get_param) == true
+      "#{get_param} is a known word"
     else
-      "#{param} is not a known word"
+      "#{get_param} is not a known word"
     end
   end
 
   def dict_list
     File.read('/usr/share/dict/words').split("\n")
-  end
-
-  def start_game
-    @game_number = rand(101)
-  end
-
-  def make_guess
-      #puts client.read(@content_length.to_i)
-      if content_type.include? 'form-data'
-        @guess = client.read(content_length.to_i).split("\r\n")[-2].to_i
-      else
-        @guess = client.read(content_length.to_i).split('=')[1].to_i
-      end
-      guess_checker if game_number != nil
-  end
-
-  def guess_checker
-    if guess > game_number
-      @high_low = "too high."
-    elsif guess < game_number
-      @high_low = "too low."
-    else
-      @high_low = "CORRECT!!!"
-    end
-    @guess_count += 1
-  end
-
-  def game_info
-    if game_number != nil
-      @game_response = "You have made #{guess_count} guesses.\n\nYour guess of #{guess} is #{high_low}"
-      @game_number = nil if high_low == "CORRECT!!!"
-    else
-      @game_response = "Please start a new game."
-    end
   end
 end
 

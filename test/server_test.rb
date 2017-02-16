@@ -80,7 +80,9 @@ class ServerTest < Minitest::Test
       conn.post '/game', {:guess => 50}
       sleep(0.01)
       ser.close_for_test = true
-      assert  del_html(conn.get('/game').body).include? "You have made 1 guesses.\n\nYour guess of 50 is"
+      game_status = conn.get('/game').body
+      puts game_status
+      assert  del_html(game_status).include? "You have made 1 guesses.\n\nYour guess of 50 is"
     end
     threads.each {|thread| thread.join}
   end
