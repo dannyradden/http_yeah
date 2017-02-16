@@ -5,21 +5,10 @@ class Game
               :high_low,
               :guess_count
 
-
-
   def initialize
     @game_number = rand(101)
     @guess_count = 0
   end
-
-  # def make_guess(game_content_type, game_content_length, game_client)
-  #     if game_content_type.include? 'form-data'
-  #       @guess = game_client.read(game_content_length.to_i).split("\r\n")[-2].to_i
-  #     else
-  #       @guess = game_client.read(game_content_length.to_i).split('=')[1].to_i
-  #     end
-  #     guess_checker if game_number != nil
-  # end
 
   def guess_checker(guess)
     if guess > game_number
@@ -41,5 +30,4 @@ class Game
     end
     game_response
   end
-
 end

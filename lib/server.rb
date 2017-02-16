@@ -108,15 +108,25 @@ class Server
   def parse_path
     if user_path == "/start_game" && verb == 'POST'
       @new_game = Game.new
-    elsif user_path == "/game" && verb == 'POST'
-      grab_guess
-      new_game.guess_checker(@guess) if new_game.game_number != nil
-    elsif user_path == "/game" && verb == 'GET'
-      @game_response = new_game.game_info(@guess)
+    elsif user_path == "/game"
+      parse_game_path
     elsif user_path == '/word_search'
       request_uri = request_lines[0].split(' ')[1]
       new_word = WordSearch.new(request_uri)
       @word_response = new_word.dict_search_result
+    end
+  end
+
+  def parse_game_path
+    if new_game != nil
+      if verb == 'POST'
+        grab_guess
+        new_game.guess_checker(@guess) if new_game.game_number != nil
+      elsif verb == 'GET'
+        @game_response = new_game.game_info(@guess)
+      end
+    else
+      @game_response = "Please start a new game."
     end
   end
 
@@ -148,19 +158,19 @@ class Server
   end
 
   def make_header
-    if @verb == 'POST' &&  user_path == "/game"
-      @header = ["http/1.1 302 redirecting",
-            "Location: http://127.0.0.1:#{port}/game",
-            "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
-            "server: ruby",
-            "content-type: text/html; charset=iso-8859-1",
-            "content-length: #{output.length}\r\n\r\n"].join("\r\n")
+    @header = ["server: ruby",
+               "content-type: text/html; charset=iso-8859-1",
+               "content-length: #{output.length}\r\n\r\n"]
+    parse_header_beginning
+    header.join("\r\n")
+  end
+
+  def parse_header_beginning
+    if verb == 'POST' &&  user_path == "/game"
+      header.unshift("Location: http://127.0.0.1:#{port}/game")
+      header.unshift("http/1.1 302 redirecting")
     else
-      @header = ["http/1.1 200 ok",
-              "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
-              "server: ruby",
-              "content-type: text/html; charset=iso-8859-1",
-              "content-length: #{output.length}\r\n\r\n"].join("\r\n")
+      header.unshift("http/1.1 200 ok")
     end
   end
 

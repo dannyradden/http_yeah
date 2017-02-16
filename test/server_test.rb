@@ -87,8 +87,23 @@ class ServerTest < Minitest::Test
     threads.each {|thread| thread.join}
   end
 
-  def test_word_search
+  def test_game_info_without_game_started
     setupp(9295)
+
+    threads = []
+    threads << Thread.new {ser.run_server}
+    threads << Thread.new do
+
+      ser.close_for_test = true
+      game_status = conn.get('/game').body
+      puts game_status
+      assert_equal 'Please start a new game.', del_html(game_status)
+    end
+    threads.each {|thread| thread.join}
+  end
+
+  def test_word_search
+    setupp(9296)
 
     threads = []
     threads << Thread.new {ser.run_server}
@@ -107,7 +122,7 @@ class ServerTest < Minitest::Test
   end
 
   def test_shutdown
-    setupp(9296)
+    setupp(9297)
 
     threads = []
     threads << Thread.new {ser.run_server}
@@ -124,7 +139,7 @@ class ServerTest < Minitest::Test
   end
 
   def test_one_of_everthing
-    setupp(9297)
+    setupp(9298)
 
     threads = []
     threads << Thread.new {ser.run_server}
