@@ -1,7 +1,9 @@
 require 'minitest/autorun'
 require 'minitest/pride'
 require './lib/server'
+require './lib/game'
 require 'faraday'
+
 
 class ServerTest < Minitest::Test
   attr_accessor :ser, :conn
@@ -23,7 +25,6 @@ class ServerTest < Minitest::Test
     assert_instance_of Server, ser
     assert_equal 0, ser.requests
   end
-
 
   def test_hello
     setupp(9291)
@@ -182,5 +183,54 @@ class ServerTest < Minitest::Test
     threads.each {|thread| thread.join}
   end
 
-  
+  def test_sort_request
+    setupp(9300)
+
+    ser.sort_request(["GET /hello HTTP/1.1", "User-Agent: Faraday v0.11.0", "Accept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3", "Accept: */*", "Connection: close", "Host: 127.0.0.1:9291"])
+
+    assert_equal 'GET', ser.verb
+    assert_equal '/hello', ser.user_path
+    assert_equal '*/*', ser.accept
+  end
+
+  def test_diagnostics
+    setupp(9301)
+
+    ser.sort_request(["POST /game HTTP/1.1", "User-Agent: Faraday v0.11.0", "Content-Length: 8", "Accept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3", "Accept: */*", "Connection: close", "Host: 127.0.0.1:9294", "Content-Type: application/x-www-form-urlencoded"])
+    diag = "<pre>
+    Verb: POST
+    Path: /game
+    Protocol: HTTP/1.1
+    Host: Faraday
+    Port: 9301
+    Origin: Faraday
+    Accept: */*
+    Content Type: application/x-www-form-urlencoded
+    Content Length: 8
+    </pre>"
+    assert_equal diag, ser.diagnostics_html
+  end
+
+  def test_make_header
+    setupp(9302)
+
+    ser.sort_request(["POST /game HTTP/1.1", "User-Agent: Faraday v0.11.0", "Content-Length: 8", "Accept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3", "Accept: */*", "Connection: close", "Host: 127.0.0.1:9294", "Content-Type: application/x-www-form-urlencoded"])
+    header = ["http/1.1 302 redirecting", "Location: http://127.0.0.1:9302/game", "server: ruby", "content-type: text/html; charset=iso-8859-1"].join("\r\n")
+
+    assert_equal header, ser.make_header
+  end
+
+  def test_guess_checker
+    ng = Game.new
+
+    ng.guess_checker(40, 50)
+    assert_equal 'too low.', ng.high_low
+
+    ng.guess_checker(60, 50)
+    assert_equal 'too high.', ng.high_low
+
+    ng.guess_checker(50, 50)
+    assert_equal 'CORRECT!!!', ng.high_low
+    assert_equal 3, ng.guess_count
+  end
 end

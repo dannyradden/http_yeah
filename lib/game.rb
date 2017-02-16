@@ -10,7 +10,7 @@ class Game
     @guess_count = 0
   end
 
-  def guess_checker(guess)
+  def guess_checker(guess, game_number = @game_number)
     if guess > game_number
       @high_low = "too high."
     elsif guess < game_number

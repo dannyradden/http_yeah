@@ -49,7 +49,6 @@ class Server
       output_to_client
       close_client
       break if user_path == '/shutdown' || close_for_test == true
-
     end
   end
 
@@ -71,10 +70,10 @@ class Server
     @user_path = requested_file(request)
     @protocol = request[0].split(' ')[2]
     @host = request[1].split(' ')[1].split(':')[0]
-    @accept = request_lines[-3]
+    @accept = request.find {|string| string.include? "Accept:"}.split(': ')[1]
     if verb == 'POST'
-      @content_type = request.find {|string| string.include? "Content-Type"}.split(':')[1]
-      @content_length = request.find {|string| string.include? "Content-Length"}.split(':')[1]
+      @content_type = request.find {|string| string.include? "Content-Type"}.split(': ')[1]
+      @content_length = request.find {|string| string.include? "Content-Length"}.split(': ')[1]
     end
   end
 
@@ -91,9 +90,9 @@ class Server
     Host: #{host}
     Port: #{port}
     Origin: #{host}
-    #{accept}
-    #{content_type}
-    #{content_length}
+    Accept: #{accept}
+    Content Type: #{content_type}
+    Content Length: #{content_length}
     </pre>"
   end
 
