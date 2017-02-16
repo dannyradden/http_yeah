@@ -37,8 +37,8 @@ class ServerTest < Minitest::Test
       ser.close_for_test = true
       hello_twice = conn.get('/hello').body
 
-      assert_equal 'Hello World(0)', del_html(hello_once)
-      assert_equal 'Hello World(1)', del_html(hello_twice)
+      assert_equal 'Hello World(1)', del_html(hello_once)
+      assert_equal 'Hello World(2)', del_html(hello_twice)
     end
     threads.each {|thread| thread.join}
   end
@@ -139,7 +139,7 @@ class ServerTest < Minitest::Test
       sleep(0.1)
       the_shutdown = conn.get('/shutdown').body
 
-      assert_equal  'Hello World(0)', del_html(hello)
+      assert_equal  'Hello World(1)', del_html(hello)
       assert_equal  'whale is a known word', del_html(right_word)
       assert_equal  "#{Time.now.strftime('%I:%M%p on %A, %B %d, %Y')}", del_html(date_time)
       assert_equal  "Good luck!", del_html(game_started)
