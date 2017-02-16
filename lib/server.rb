@@ -26,7 +26,6 @@ class Server
               :output,
               :new_game
 
-
   def initialize(port)
     @port = port
     @tcp_server = TCPServer.new(port)
@@ -38,21 +37,19 @@ class Server
 
   def run_server
     loop do
-      puts 'begin loop'
       accept_connection
       read_request
-      parse_request
+      sort_request
       diagnostics_html
       counters_increaser
+      make_header
       parse_path
       define_response
+      make_output
       output_to_client
       close_client
-      if user_path == '/shutdown' || close_for_test == true
-        puts " loop broken#{close_for_test}"
-        break
-      end
-      puts "finished #{port}#{close_for_test}"
+      break if user_path == '/shutdown' || close_for_test == true
+
     end
   end
 
@@ -69,7 +66,7 @@ class Server
     puts request_lines.inspect
   end
 
-  def parse_request(request = request_lines)
+  def sort_request(request = request_lines)
     @verb = request[0].split(' ')[0]
     @user_path = requested_file(request)
     @protocol = request[0].split(' ')[2]
@@ -105,9 +102,32 @@ class Server
     @hello_counter += 1 if path == '/hello'
   end
 
+  def make_header
+    @header = ["server: ruby",
+               "content-type: text/html; charset=iso-8859-1"]
+    parse_header_beginning
+    header.join("\r\n")
+  end
+
+  def parse_header_beginning
+    if verb == 'POST' && user_path == "/game"
+      header.unshift("Location: http://127.0.0.1:#{port}/game")
+      header.unshift("http/1.1 302 redirecting")
+    elsif user_path == "/start_game" && new_game.nil?
+      header.unshift("Location: http://127.0.0.1:#{port}/game")
+      header.unshift("http/1.1 301 redirecting")
+    elsif user_path == "/start_game" && !new_game.nil?
+      header.unshift("http/1.1 403 forbidden")
+    elsif user_path == "/force_error"
+      header.unshift("http/1.1 500 Internal Server Error")
+    else
+      header.unshift("http/1.1 200 ok")
+    end
+  end
+
   def parse_path
     if user_path == "/start_game" && verb == 'POST'
-      @new_game = Game.new
+      @new_game = Game.new if new_game == nil
     elsif user_path == "/game"
       parse_game_path
     elsif user_path == '/word_search'
@@ -121,9 +141,10 @@ class Server
     if new_game != nil
       if verb == 'POST'
         grab_guess
-        new_game.guess_checker(@guess) if new_game.game_number != nil
+        new_game.guess_checker(@guess) if !new_game.game_number.nil?
       elsif verb == 'GET'
         @game_response = new_game.game_info(@guess)
+        new_game = nil if game_response == "CORRECT!!!"
       end
     else
       @game_response = "Please start a new game."
@@ -139,44 +160,34 @@ class Server
   end
 
   def define_response(path = user_path, word_response = @word_response)
-    @paths = {'/' => '',
+    @paths   =  {'/' => '',
                  '/hello' => "Hello World(#{hello_counter})",
                  '/datetime' => "#{Time.now.strftime('%I:%M%p on %A, %B %d, %Y')}",
                  '/shutdown' => "Total Requests: #{requests}",
                  '/word_search' => "#{word_response}",
                  '/start_game' => "Good luck!",
-                 '/game' => "#{game_response}"
+                 '/game' => "#{game_response}",
+                 '/force_error' => 'SystemError'
                  }
     @response = paths[path]
   end
 
-  def output_to_client(main = response, diag = diagnostics_html)
+  def make_output(main = response, diag = diagnostics_html)
     @output = "<html><head></head><body><pre>#{main}#{diag if host != 'Faraday'}</pre></body></html>"
-    make_header
+  end
+
+  def output_to_client
+    if paths.key?(user_path) == false
+      header.shift
+      header.unshift "http/1.1 404 Not Found"
+    end
+    header << "content-length: #{output.length}\r\n\r\n"
     client.puts header
     client.puts output
   end
 
-  def make_header
-    @header = ["server: ruby",
-               "content-type: text/html; charset=iso-8859-1",
-               "content-length: #{output.length}\r\n\r\n"]
-    parse_header_beginning
-    header.join("\r\n")
-  end
-
-  def parse_header_beginning
-    if verb == 'POST' &&  user_path == "/game"
-      header.unshift("Location: http://127.0.0.1:#{port}/game")
-      header.unshift("http/1.1 302 redirecting")
-    else
-      header.unshift("http/1.1 200 ok")
-    end
-  end
-
   def close_client
     client.close
-    puts 'connection ended'
   end
 end
 

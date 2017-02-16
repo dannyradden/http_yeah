@@ -31,7 +31,6 @@ class ServerTest < Minitest::Test
     threads = []
     threads << Thread.new {ser.run_server}
     threads << Thread.new do
-
       hello_once = conn.get('/hello').body
       sleep(0.01)
       ser.close_for_test = true
@@ -75,13 +74,12 @@ class ServerTest < Minitest::Test
     threads = []
     threads << Thread.new {ser.run_server}
     threads << Thread.new do
-
       conn.post('/start_game')
       conn.post '/game', {:guess => 50}
       sleep(0.01)
       ser.close_for_test = true
       game_status = conn.get('/game').body
-      puts game_status
+
       assert  del_html(game_status).include? "You have made 1 guesses.\n\nYour guess of 50 is"
     end
     threads.each {|thread| thread.join}
@@ -93,7 +91,6 @@ class ServerTest < Minitest::Test
     threads = []
     threads << Thread.new {ser.run_server}
     threads << Thread.new do
-
       ser.close_for_test = true
       game_status = conn.get('/game').body
       puts game_status
@@ -108,7 +105,6 @@ class ServerTest < Minitest::Test
     threads = []
     threads << Thread.new {ser.run_server}
     threads << Thread.new do
-
       right_word = conn.get('/word_search?param=banana').body
       sleep(0.01)
       ser.close_for_test = true
@@ -127,7 +123,6 @@ class ServerTest < Minitest::Test
     threads = []
     threads << Thread.new {ser.run_server}
     threads << Thread.new do
-
       conn.get('/hello')
       conn.get('/hello')
       sleep(0.01)
@@ -151,7 +146,7 @@ class ServerTest < Minitest::Test
       game_started = conn.post('/start_game').body
                      conn.post '/game', {:guess => 40}
       game_status  = conn.get('/game').body
-      sleep(0.1)
+      sleep(0.01)
       the_shutdown = conn.get('/shutdown').body
 
       assert_equal  'Hello World(1)', del_html(hello)
@@ -164,5 +159,28 @@ class ServerTest < Minitest::Test
     threads.each {|thread| thread.join}
   end
 
+  def test_error_codes
+    setupp(9299)
 
+    threads = []
+    threads << Thread.new {ser.run_server}
+    threads << Thread.new do
+      start_game_once = conn.post('/start_game').status
+      start_game_twice = conn.post('/start_game').status
+      no_address = conn.post('/gwrerg').status
+      error_force = conn.post('/force_error').status
+      sleep(0.01)
+      ser.close_for_test = true
+      hello_once = conn.post('/hello').status
+
+      assert_equal 301, start_game_once
+      assert_equal 403, start_game_twice
+      assert_equal 404, no_address
+      assert_equal 200, hello_once
+      assert_equal 500, error_force
+    end
+    threads.each {|thread| thread.join}
+  end
+
+  
 end

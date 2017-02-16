@@ -22,11 +22,14 @@ class Game
   end
 
   def game_info(guess)
-    if game_number != nil
-      game_response = "You have made #{guess_count} guesses.\n\nYour guess of #{guess} is #{high_low}"
-      @game_number = nil if high_low == "CORRECT!!!"
+    if guess_count == 0
+      game_response = "Good Luck!"
     else
-      game_response = "Please start a new game."
+      if game_number != nil
+        game_response = "You have made #{guess_count} guesses.\n\nYour guess of #{guess} is #{high_low}"
+      else
+        game_response = "Please start a new game."
+      end
     end
     game_response
   end
