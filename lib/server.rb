@@ -1,18 +1,32 @@
 require 'socket'
 require 'uri'
 
-
 class Server
-  attr_accessor :port,
-                :tcp_server,
-                :hello_counter,
-                :requests,
-                :request_lines,
-                :user_path,
-                :client,
-                :response,
-                :paths,
-                :close_for_test
+  attr_accessor :close_for_test
+
+  attr_reader :port,
+              :tcp_server,
+              :hello_counter,
+              :requests,
+              :guess_count,
+              :request_lines,
+              :verb,
+              :user_path,
+              :client,
+              :response,
+              :paths,
+              :protocol,
+              :host,
+              :accept,
+              :content_type,
+              :content_length,
+              :game_response,
+              :header,
+              :output,
+              :param,
+              :game_number,
+              :guess,
+              :high_low
 
 
   def initialize(port)
@@ -36,11 +50,11 @@ class Server
       counters_increaser
       output_to_client
       close_client
-      if user_path == '/shutdown'|| @close_for_test == true
-        puts " loop broken#{@close_for_test}"
+      if user_path == '/shutdown' || close_for_test == true
+        puts " loop broken#{close_for_test}"
         break
       end
-      puts "finished #{@port}#{@close_for_test}"
+      puts "finished #{port}#{close_for_test}"
     end
   end
 
@@ -55,7 +69,7 @@ class Server
     while (line = server.gets) && !line.chomp.empty?
       request_lines << line.chomp
     end
-     puts request_lines.inspect
+    puts request_lines.inspect
   end
 
   def parse_request(request = request_lines)
@@ -65,7 +79,7 @@ class Server
     @host = request[1].split(' ')[1].split(':')[0]
     #@port = request[1].split(' ')[1].split(':')[1]
     @accept = request_lines[-3]
-    if @verb == 'POST'
+    if verb == 'POST'
       @content_type = request.find {|string| string.include? "Content-Type"}.split(':')[1]
       @content_length = request.find {|string| string.include? "Content-Length"}.split(':')[1]
     end
@@ -73,37 +87,37 @@ class Server
 
   def diagnostics_html
     "<pre>
-    Verb: #{@verb}
+    Verb: #{verb}
     Path: #{user_path}
-    Protocol: #{@protocol}
-    Host: #{@host}
-    Port: #{@port}
-    Origin: #{@host}
-    #{@accept}
-    #{@content_type}
-    #{@content_length}
+    Protocol: #{protocol}
+    Host: #{host}
+    Port: #{port}
+    Origin: #{host}
+    #{accept}
+    #{content_type}
+    #{content_length}
     </pre>"
   end
 
   def check_game
     #require "pry"; binding.pry
-    if @verb == 'POST' && user_path == "/start_game"
+    if verb == 'POST' && user_path == "/start_game"
       start_game
-    elsif @verb == 'POST' && user_path == "/game"
+    elsif verb == 'POST' && user_path == "/game"
       make_guess
-    elsif @verb == 'GET' && user_path == "/game"
+    elsif verb == 'GET' && user_path == "/game"
       game_info
     end
   end
 
   def path_to_response(path = user_path)
     @paths = {'/' => '',
-                 '/hello' => "Hello World(#{@hello_counter})",
+                 '/hello' => "Hello World(#{hello_counter})",
                  '/datetime' => "#{Time.now.strftime('%I:%M%p on %A, %B %d, %Y')}",
-                 '/shutdown' => "Total Requests: #{@requests}",
+                 '/shutdown' => "Total Requests: #{requests}",
                  '/word_search' => "#{dict_search_result}",
                  '/start_game' => "Good luck!",
-                 '/game' => "#{@game_response}"
+                 '/game' => "#{game_response}"
                  }
     @response = paths[path]
   end
@@ -114,27 +128,27 @@ class Server
 
 
   def output_to_client(main = response, diag = diagnostics_html)
-    @output = "<html><head></head><body><pre>#{main}#{diag if @host != 'Faraday'}</pre></body></html>"
+    @output = "<html><head></head><body><pre>#{main}#{diag if host != 'Faraday'}</pre></body></html>"
     make_header
-    client.puts @header
-    client.puts @output
+    client.puts header
+    client.puts output
 
   end
 
   def make_header
     if @verb == 'POST' &&  user_path == "/game"
       @header = ["http/1.1 302 redirecting",
-            "Location: http://127.0.0.1:#{@port}/game",
+            "Location: http://127.0.0.1:#{port}/game",
             "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
             "server: ruby",
             "content-type: text/html; charset=iso-8859-1",
-            "content-length: #{@output.length}\r\n\r\n"].join("\r\n")
+            "content-length: #{output.length}\r\n\r\n"].join("\r\n")
     else
       @header = ["http/1.1 200 ok",
               "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
               "server: ruby",
               "content-type: text/html; charset=iso-8859-1",
-              "content-length: #{@output.length}\r\n\r\n"].join("\r\n")
+              "content-length: #{output.length}\r\n\r\n"].join("\r\n")
     end
   end
 
@@ -143,12 +157,12 @@ class Server
     puts 'connection ended'
   end
 
-  def requested_file(lines = @request_lines)
+  def requested_file(lines = request_lines)
     request_uri = lines[0].split(' ')[1]
     URI.unescape(URI(request_uri).path)
   end
 
-  def assign_param(lines = @request_lines)
+  def assign_param(lines = request_lines)
     request_uri  = lines[0].split(' ')[1]
     query        = URI.unescape(URI(request_uri).query)
     @param = query.split('=')[1]
@@ -156,10 +170,10 @@ class Server
 
   def dict_search_result
     assign_param if user_path == "/word_search"
-    if dict_list.include?(@param) == true
-      "#{@param} is a known word"
+    if dict_list.include?(param) == true
+      "#{param} is a known word"
     else
-      "#{@param} is not a known word"
+      "#{param} is not a known word"
     end
   end
 
@@ -173,18 +187,18 @@ class Server
 
   def make_guess
       #puts client.read(@content_length.to_i)
-      if @content_type.include? 'form-data'
-        @guess = client.read(@content_length.to_i).split("\r\n")[-2].to_i
+      if content_type.include? 'form-data'
+        @guess = client.read(content_length.to_i).split("\r\n")[-2].to_i
       else
-        @guess = client.read(@content_length.to_i).split('=')[1].to_i
+        @guess = client.read(content_length.to_i).split('=')[1].to_i
       end
-      guess_checker if @game_number != nil
+      guess_checker if game_number != nil
   end
 
   def guess_checker
-    if @guess > @game_number
+    if guess > game_number
       @high_low = "too high."
-    elsif @guess < @game_number
+    elsif guess < game_number
       @high_low = "too low."
     else
       @high_low = "CORRECT!!!"
@@ -193,9 +207,9 @@ class Server
   end
 
   def game_info
-    if @game_number != nil
-      @game_response = "You have made #{@guess_count} guesses.\n\nYour guess of #{@guess} is #{@high_low}"
-      @game_number = nil if @high_low == "CORRECT!!!"
+    if game_number != nil
+      @game_response = "You have made #{guess_count} guesses.\n\nYour guess of #{guess} is #{high_low}"
+      @game_number = nil if high_low == "CORRECT!!!"
     else
       @game_response = "Please start a new game."
     end
